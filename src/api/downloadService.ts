@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system';
+import * as SQLite from 'expo-sqlite';
 import db from '../services/dbService';
 import { POI } from '../types/poi';
 
@@ -12,7 +13,7 @@ export const downloadPOIs = async (url: string) => {
 
 const savePOIsToDB = async (pois: POI[]) => {
   return new Promise((resolve, reject) => {
-    db.transaction(tx => {
+    db.transaction((tx: any) => {
       pois.forEach(poi => {
         tx.executeSql(
           'INSERT OR REPLACE INTO pois (id, name, description, latitude, longitude, image, category) VALUES (?, ?, ?, ?, ?, ?, ?)',
