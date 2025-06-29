@@ -16,8 +16,8 @@ const savePOIsToDB = async (pois: POI[]) => {
     db.transaction((tx: any) => {
       pois.forEach(poi => {
         tx.executeSql(
-          'INSERT OR REPLACE INTO pois (id, name, description, latitude, longitude, image, category) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [poi.id, poi.name, poi.description, poi.latitude, poi.longitude, poi.image, poi.category]
+          'INSERT OR REPLACE INTO pois (id, name, description, latitude, longitude, image, categoryId) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [poi.id, poi.name, poi.description, poi.latitude, poi.longitude, poi.image, poi.categoryId]
         );
       });
     }, reject, resolve);

@@ -15,7 +15,7 @@ export const initDB = () => {
           latitude REAL,
           longitude REAL,
           image TEXT,
-          category TEXT
+          categoryId TEXT
         );`,
         [],
         () => {
@@ -99,8 +99,8 @@ export const insertPOI = (poi: POI) => {
   return new Promise((resolve, reject) => {
     db.transaction((tx: any) => {
       tx.executeSql(
-        'INSERT OR REPLACE INTO pois (id, name, description, latitude, longitude, image, category) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [poi.id, poi.name, poi.description, poi.latitude, poi.longitude, poi.image, poi.category],
+        'INSERT OR REPLACE INTO pois (id, name, description, latitude, longitude, image, categoryId) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [poi.id, poi.name, poi.description, poi.latitude, poi.longitude, poi.image, poi.categoryId],
         () => resolve(true),
         (_: any, err: any) => {
           console.error('Error inserting POI:', err);

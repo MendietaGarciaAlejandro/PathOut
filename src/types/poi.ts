@@ -5,5 +5,5 @@ export interface POI {
   latitude: number;
   longitude: number;
   image?: string;
-  category?: string;
+  categoryId?: string;
 }
