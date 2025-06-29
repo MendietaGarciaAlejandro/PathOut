@@ -16,6 +16,7 @@ const RouteCard: React.FC<RouteCardProps> = ({ route, onPress, onShare }) => {
   const pois = useSelector((state: RootState) => state.poi.pois);
 
   const handleDelete = () => {
+    console.log('🗑️ RouteCard: Botón eliminar presionado para ruta:', route.name, 'ID:', route.id);
     Alert.alert(
       'Eliminar Ruta',
       `¿Estás seguro de que quieres eliminar la ruta "${route.name}"?`,
@@ -24,7 +25,10 @@ const RouteCard: React.FC<RouteCardProps> = ({ route, onPress, onShare }) => {
         {
           text: 'Eliminar',
           style: 'destructive',
-          onPress: () => dispatch(deleteRouteAsync(route.id) as any),
+          onPress: () => {
+            console.log('🗑️ RouteCard: Confirmación de eliminación aceptada');
+            dispatch(deleteRouteAsync(route.id) as any);
+          },
         },
       ]
     );

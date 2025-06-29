@@ -3,12 +3,12 @@ import { View, StyleSheet, Dimensions, Text, Modal, TextInput, Button, Alert, Fl
 import { POI } from '../types/poi';
 import { CATEGORIES, Category, getCategoryById } from '../types/categories';
 import { Route } from '../types/route';
-import { getPOIs } from '../services/dbService.web';
+import { getPOIs, clearAllData } from '../services/dbService.web';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
 import { setPOIs, addPOIAsync, clearError, removePOIAsync } from '../redux/slices/poiSlice';
 import { fetchFavorites, addFavoriteAsync, removeFavoriteAsync } from '../redux/slices/favoritesSlice';
-import { fetchRoutesAsync, setSelectedRoute, clearSelectedRoute } from '../redux/slices/routeSlice';
+import { fetchRoutesAsync, setSelectedRoute, clearSelectedRoute, createRouteAsync } from '../redux/slices/routeSlice';
 import { sharePOI, shareRoute, shareMultiplePOIs, exportToGPX, exportToKML } from '../services/shareService';
 import ErrorMessage from '../components/ErrorMessage';
 import POICard from '../components/POICard';
@@ -44,6 +44,9 @@ const MainMapScreen = () => {
   const [routePath, setRoutePath] = useState<any>(null);
   const [routeLoading, setRouteLoading] = useState(false);
 
+  // Log para debuggear el estado de rutas
+  console.log('📊 MainMapScreen: Estado actual de rutas:', routes.length, routes);
+
   // Función para cargar POIs desde la base de datos
   const loadPOIsFromDB = async () => {
     try {
@@ -67,6 +70,7 @@ const MainMapScreen = () => {
   };
 
   useEffect(() => {
+    console.log('🔄 MainMapScreen: useEffect ejecutándose');
     loadPOIsFromDB();
     dispatch(fetchFavorites() as any);
     dispatch(fetchRoutesAsync() as any);
@@ -254,11 +258,9 @@ const MainMapScreen = () => {
         .filter((poi): poi is POI => poi !== undefined);
 
       if (routePOIs.length < 2) {
-        console.log('No hay suficientes POIs para calcular la ruta');
         return;
       }
 
-      console.log('Calculando ruta para:', route.name);
       const path = await getCompleteRoute(routePOIs);
       
       // Convertir los puntos para Leaflet
@@ -271,12 +273,6 @@ const MainMapScreen = () => {
         distance: path.totalDistance,
         duration: path.totalDuration,
         color: route.color
-      });
-
-      console.log('Ruta cargada en mapa:', {
-        name: route.name,
-        distance: formatDistance(path.totalDistance),
-        duration: formatDuration(path.totalDuration)
       });
 
     } catch (error) {
@@ -343,6 +339,48 @@ const MainMapScreen = () => {
     }
   };
 
+  // Función de prueba para diagnosticar problemas con rutas
+  const testRouteOperations = () => {
+    console.log('🧪 Test: Iniciando pruebas de rutas');
+    
+    // Crear una ruta de prueba
+    const testRoute: Route = {
+      id: Date.now(),
+      name: 'Ruta de Prueba',
+      description: 'Esta es una ruta de prueba',
+      poiIds: [1, 2],
+      createdAt: Date.now(),
+      isPublic: false,
+      color: '#FF6B6B'
+    };
+    
+    console.log('🧪 Test: Creando ruta de prueba:', testRoute);
+    dispatch(createRouteAsync(testRoute) as any);
+    
+    // Verificar después de 2 segundos
+    setTimeout(() => {
+      console.log('🧪 Test: Verificando estado después de crear ruta');
+      console.log('🧪 Test: Rutas en estado:', routes.length);
+    }, 2000);
+  };
+
+  // Función para limpiar todos los datos
+  const handleClearAllData = () => {
+    const confirmed = window.confirm('¿Estás seguro de que quieres limpiar todos los datos? Esto eliminará todos los POIs, favoritos y rutas.');
+    
+    if (confirmed) {
+      console.log('🧹 MainMapScreen: Limpiando todos los datos');
+      clearAllData();
+      
+      // Recargar datos
+      loadPOIsFromDB();
+      dispatch(fetchFavorites() as any);
+      dispatch(fetchRoutesAsync() as any);
+      
+      alert('Todos los datos han sido limpiados. La aplicación se ha reiniciado.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       {error && <ErrorMessage message={error} onDismiss={handleDismissError} />}
@@ -401,6 +439,18 @@ const MainMapScreen = () => {
                   onPress={handleCreateRoute}
                 >
                   <Text style={styles.createButtonText}>➕ Crear Ruta</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.createButton, { backgroundColor: '#FF9800' }]}
+                  onPress={testRouteOperations}
+                >
+                  <Text style={styles.createButtonText}>🧪 Test</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.createButton, { backgroundColor: '#F44336' }]}
+                  onPress={handleClearAllData}
+                >
+                  <Text style={styles.createButtonText}>🧹 Limpiar</Text>
                 </TouchableOpacity>
                 {selectedRoute && (
                   <TouchableOpacity 
@@ -630,23 +680,28 @@ const MainMapScreen = () => {
           <MapClickHandler />
           
           {/* Mostrar ruta seleccionada */}
-          {routePath && routePath.coordinates && routePath.coordinates.length > 1 && (
-            <Polyline
-              positions={routePath.coordinates}
-              color={routePath.color}
-              weight={4}
-              opacity={0.8}
-            >
-              <Popup>
-                <div style={{ textAlign: 'center', minWidth: '200px' }}>
-                  <b>{selectedRoute?.name}</b><br />
-                  {selectedRoute?.description && <span>{selectedRoute.description}<br /></span>}
-                  <span>Distancia: {formatDistance(routePath.distance)}</span><br />
-                  <span>Duración: {formatDuration(routePath.duration)}</span>
-                </div>
-              </Popup>
-            </Polyline>
-          )}
+          {(() => {
+            if (routePath && routePath.coordinates && routePath.coordinates.length > 1) {
+              return (
+                <Polyline
+                  positions={routePath.coordinates}
+                  color={routePath.color}
+                  weight={4}
+                  opacity={0.8}
+                >
+                  <Popup>
+                    <div style={{ textAlign: 'center', minWidth: '200px' }}>
+                      <b>{selectedRoute?.name}</b><br />
+                      {selectedRoute?.description && <span>{selectedRoute.description}<br /></span>}
+                      <span>Distancia: {formatDistance(routePath.distance)}</span><br />
+                      <span>Duración: {formatDuration(routePath.duration)}</span>
+                    </div>
+                  </Popup>
+                </Polyline>
+              );
+            }
+            return null;
+          })()}
           
           {/* Indicador de carga de ruta */}
           {routeLoading && (

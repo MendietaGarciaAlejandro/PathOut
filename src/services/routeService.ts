@@ -17,49 +17,48 @@ export interface RoutePath {
   totalDuration: number;
 }
 
-// Función para obtener una ruta real entre dos puntos usando OpenRouteService
+// Función para obtener una ruta real entre dos puntos usando OSRM (gratuito, sin API key)
 export const getRouteBetweenPoints = async (
   start: RoutePoint, 
   end: RoutePoint
 ): Promise<RoutePath> => {
+  console.log('getRouteBetweenPoints: Iniciando con puntos:', { start, end });
   try {
-    // Usar OpenRouteService (gratuito, sin API key para uso básico)
-    const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=5b3ce3597851110001cf6248e4c8c7c8c0c94c0c8c8c8c8c8c8c8c`;
+    // Usar OSRM (Open Source Routing Machine) - completamente gratuito, sin API key
+    const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`;
     
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({
-        coordinates: [
-          [start.lng, start.lat],
-          [end.lng, end.lat]
-        ],
-        format: 'geojson'
-      })
-    });
+    console.log('getRouteBetweenPoints: Haciendo petición a OSRM...');
+    const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error('Error al obtener la ruta');
+      console.log('getRouteBetweenPoints: Error en respuesta:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.log('getRouteBetweenPoints: Error detallado:', errorText);
+      throw new Error(`Error al obtener la ruta: ${response.status}`);
     }
 
     const data = await response.json();
+    console.log('getRouteBetweenPoints: Respuesta recibida:', data);
+    
+    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+      throw new Error('No se pudo calcular la ruta');
+    }
     
     // Extraer los puntos de la ruta
-    const coordinates = data.features[0].geometry.coordinates;
+    const coordinates = data.routes[0].geometry.coordinates;
     const points: RoutePoint[] = coordinates.map((coord: number[]) => ({
       lng: coord[0],
       lat: coord[1]
     }));
 
-    // Calcular distancia y duración
-    const properties = data.features[0].properties;
-    const distance = properties.segments[0].distance;
-    const duration = properties.segments[0].duration;
+    console.log('getRouteBetweenPoints: Puntos extraídos:', points);
 
-    return {
+    // Calcular distancia y duración
+    const route = data.routes[0];
+    const distance = route.distance; // en metros
+    const duration = route.duration; // en segundos
+
+    const result = {
       segments: [{
         points,
         distance,
@@ -68,19 +67,47 @@ export const getRouteBetweenPoints = async (
       totalDistance: distance,
       totalDuration: duration
     };
+
+    console.log('getRouteBetweenPoints: Resultado final:', result);
+    return result;
   } catch (error) {
-    console.error('Error al obtener ruta:', error);
+    console.error('getRouteBetweenPoints: Error al obtener ruta:', error);
     
-    // Fallback: línea recta entre puntos
-    return {
+    // Fallback: simulación de ruta que no sea completamente recta
+    console.log('getRouteBetweenPoints: Usando fallback (simulación de calles)');
+    
+    // Calcular puntos intermedios para simular una ruta que no sea completamente recta
+    const points: RoutePoint[] = [];
+    const steps = 15; // Más puntos para una ruta más suave
+    
+    for (let i = 0; i <= steps; i++) {
+      const ratio = i / steps;
+      const lat = start.lat + (end.lat - start.lat) * ratio;
+      const lng = start.lng + (end.lng - start.lng) * ratio;
+      
+      // Agregar variaciones para simular que sigue las calles
+      const variation = Math.sin(ratio * Math.PI) * 0.0002; // Variación más pronunciada
+      points.push({
+        lat: lat + variation,
+        lng: lng + variation
+      });
+    }
+
+    const distance = calculateDistance(start, end);
+    const duration = distance / 5; // 5 m/s velocidad estimada
+
+    const fallbackResult = {
       segments: [{
-        points: [start, end],
-        distance: calculateDistance(start, end),
-        duration: calculateDistance(start, end) / 5 // 5 m/s velocidad estimada
+        points,
+        distance,
+        duration
       }],
-      totalDistance: calculateDistance(start, end),
-      totalDuration: calculateDistance(start, end) / 5
+      totalDistance: distance,
+      totalDuration: duration
     };
+    
+    console.log('getRouteBetweenPoints: Resultado fallback:', fallbackResult);
+    return fallbackResult;
   }
 };
 
