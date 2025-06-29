@@ -56,9 +56,7 @@ class WebDatabase {
             // Las tablas ya están "creadas" en memoria
             if (success) success();
           } else if (sql.includes('SELECT * FROM pois')) {
-            console.log('WebDB: Seleccionando todos los POIs');
             if (success) {
-              console.log('WebDB: POIs encontrados:', this.pois);
               success(null, { rows: { _array: this.pois } });
             }
           } else if (sql.includes('SELECT poi_id FROM favorites')) {
@@ -74,22 +72,18 @@ class WebDatabase {
               category: params[6],
             };
             
-            console.log('WebDB: Procesando inserción de POI:', poi);
             const existingIndex = this.pois.findIndex(p => p.id === poi.id);
             if (existingIndex >= 0) {
-              console.log('WebDB: Actualizando POI existente en índice:', existingIndex);
-              this.pois[existingIndex] = poi;
+              this.pois = [...this.pois.slice(0, existingIndex), poi, ...this.pois.slice(existingIndex + 1)];
             } else {
-              console.log('WebDB: Agregando nuevo POI');
-              this.pois.push(poi);
+              this.pois = [...this.pois, poi];
             }
-            console.log('WebDB: Estado actual de POIs después de inserción:', this.pois);
             this.saveToStorage();
             if (success) success();
           } else if (sql.includes('INSERT OR REPLACE INTO favorites')) {
             const poiId = params[0];
             if (!this.favorites.includes(poiId)) {
-              this.favorites.push(poiId);
+              this.favorites = [...this.favorites, poiId];
               this.saveToStorage();
             }
             if (success) success();
@@ -179,23 +173,21 @@ export const getFavorites = () => {
 export const insertPOI = (poi: POI) => {
   return new Promise((resolve, reject) => {
     try {
-      console.log('WebDB: Insertando POI:', poi);
       db.transaction((tx: any) => {
         tx.executeSql(
           'INSERT OR REPLACE INTO pois (id, name, description, latitude, longitude, image, category) VALUES (?, ?, ?, ?, ?, ?, ?)',
           [poi.id, poi.name, poi.description, poi.latitude, poi.longitude, poi.image, poi.category],
           () => {
-            console.log('WebDB: POI insertado exitosamente');
             resolve(true);
           },
           (_: any, err: any) => {
-            console.error('WebDB: Error al insertar POI:', err);
+            console.error('Error al insertar POI:', err);
             reject(err);
           }
         );
       });
     } catch (error) {
-      console.error('WebDB: Error en insertPOI:', error);
+      console.error('Error en insertPOI:', error);
       reject(error);
     }
   });
@@ -231,23 +223,21 @@ export const deletePOI = (poiId: number) => {
 export const getPOIs = () => {
   return new Promise<POI[]>((resolve, reject) => {
     try {
-      console.log('WebDB: Obteniendo todos los POIs');
       db.transaction((tx: any) => {
         tx.executeSql(
           'SELECT * FROM pois',
           [],
           (_: any, { rows }: any) => {
-            console.log('WebDB: POIs obtenidos de la transacción:', rows._array);
             resolve(rows._array);
           },
           (_: any, err: any) => {
-            console.error('WebDB: Error al obtener POIs:', err);
+            console.error('Error al obtener POIs:', err);
             reject(err);
           }
         );
       });
     } catch (error) {
-      console.error('WebDB: Error en getPOIs:', error);
+      console.error('Error en getPOIs:', error);
       reject(error);
     }
   });

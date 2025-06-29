@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Dimensions, Text, Modal, TextInput, Button, Alert, FlatList, TouchableOpacity } from 'react-native';
 import { POI } from '../types/poi';
-import db from '../services/dbServiceConfig';
+import { getPOIs } from '../services/dbService.web';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
 import { setPOIs, addPOIAsync, clearError, removePOIAsync } from '../redux/slices/poiSlice';
@@ -10,12 +10,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import POICard from '../components/POICard';
 import 'leaflet/dist/leaflet.css';
 
-// Log básico para verificar que el archivo se está cargando
-console.log('MainMapScreen.web.tsx: Archivo cargado');
-
 const MainMapScreen = () => {
-  console.log('MainMapScreen.web: Componente iniciando');
-  
   const dispatch = useDispatch();
   const pois = useSelector((state: RootState) => state.poi.pois);
   const favoriteIds = useSelector((state: RootState) => state.favorites.favorites);
@@ -25,18 +20,16 @@ const MainMapScreen = () => {
   const [loading, setLoading] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   const [selectedPOI, setSelectedPOI] = useState<POI | null>(null);
-
-  console.log('MainMapScreen.web: Estado inicial - pois:', pois, 'favoriteIds:', favoriteIds);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [poiToDelete, setPoiToDelete] = useState<number | null>(null);
 
   // Función para cargar POIs desde la base de datos
   const loadPOIsFromDB = async () => {
     try {
-      console.log('MainMapScreen.web: Cargando POIs desde la base de datos...');
-      const loadedPOIs = await db.getPOIs();
-      console.log('MainMapScreen.web: POIs cargados desde DB:', loadedPOIs);
+      const loadedPOIs = await getPOIs();
       dispatch(setPOIs(loadedPOIs));
     } catch (error) {
-      console.error('MainMapScreen.web: Error al cargar POIs desde DB:', error);
+      console.error('Error al cargar POIs desde DB:', error);
       // Si hay error, usar datos de prueba
       const testPOIs: POI[] = [
         {
@@ -52,50 +45,29 @@ const MainMapScreen = () => {
     }
   };
 
-  // Monitorear cambios en el estado de POIs
   useEffect(() => {
-    console.log('MainMapScreen.web: Estado de POIs actualizado:', pois);
-  }, [pois]);
-
-  useEffect(() => {
-    console.log('MainMapScreen.web: useEffect ejecutado');
-    // Cargar POIs desde la base de datos
     loadPOIsFromDB();
     dispatch(fetchFavorites() as any);
-  }, [dispatch]); // Solo dependencia en dispatch, no en pois
+  }, [dispatch]);
 
   const handleMapPress = (e: any) => {
-    console.log('MainMapScreen.web: handleMapPress llamado');
-    console.log('MainMapScreen.web: e.latlng:', e.latlng);
-    
     // Verificar si las coordenadas están en lat/lng en lugar de latitude/longitude
     const lat = e.latlng?.lat || e.latlng?.latitude;
     const lng = e.latlng?.lng || e.latlng?.longitude;
     
-    console.log('MainMapScreen.web: lat extraída:', lat);
-    console.log('MainMapScreen.web: lng extraída:', lng);
-    
     if (lat && lng) {
       setNewPOI({ latitude: lat, longitude: lng });
-      console.log('MainMapScreen.web: newPOI establecido con:', { latitude: lat, longitude: lng });
       setModalVisible(true);
-    } else {
-      console.error('MainMapScreen.web: No se pudieron extraer las coordenadas del evento');
     }
   };
 
   const handleAddPOI = async () => {
-    console.log('MainMapScreen.web: handleAddPOI llamado');
-    console.log('MainMapScreen.web: newPOI actual:', newPOI);
-    
     if (!newPOI.name || !newPOI.latitude || !newPOI.longitude) {
-      console.log('MainMapScreen.web: Validación fallida - datos faltantes');
       Alert.alert('Error', 'Por favor completa al menos el nombre del punto de interés');
       return;
     }
 
     setLoading(true);
-    console.log('MainMapScreen.web: Loading establecido en true');
     
     try {
       const poi: POI = {
@@ -108,40 +80,17 @@ const MainMapScreen = () => {
         category: newPOI.category,
       };
       
-      console.log('MainMapScreen.web: POI creado:', poi);
-      console.log('MainMapScreen.web: Estado actual de POIs antes de dispatch:', pois);
-      
-      const result = await dispatch(addPOIAsync(poi) as any);
-      console.log('MainMapScreen.web: Resultado del dispatch:', result);
-      
+      await dispatch(addPOIAsync(poi) as any);
       setModalVisible(false);
       setNewPOI({});
       
-      console.log('MainMapScreen.web: Modal cerrado y newPOI reseteado');
       Alert.alert('Éxito', 'Punto de interés agregado correctamente');
     } catch (error) {
-      console.error('MainMapScreen.web: Error en handleAddPOI:', error);
       Alert.alert('Error', 'No se pudo agregar el punto de interés');
+      console.error('Error adding POI:', error);
     } finally {
       setLoading(false);
-      console.log('MainMapScreen.web: Loading establecido en false');
     }
-  };
-
-  // Función de prueba para agregar un POI directamente al estado
-  const handleTestAddPOI = () => {
-    console.log('MainMapScreen.web: handleTestAddPOI llamado');
-    const testPOI: POI = {
-      id: Date.now(),
-      name: 'POI de prueba ' + Date.now(),
-      description: 'Descripción de prueba',
-      latitude: 40.4168,
-      longitude: -3.7038,
-      category: 'Test'
-    };
-    console.log('MainMapScreen.web: Agregando POI de prueba:', testPOI);
-    dispatch(setPOIs([...pois, testPOI]));
-    console.log('MainMapScreen.web: POI de prueba agregado, estado actual:', [...pois, testPOI]);
   };
 
   const handleCancel = () => {
@@ -162,25 +111,27 @@ const MainMapScreen = () => {
   };
 
   const handleDeletePOI = async (poiId: number) => {
-    Alert.alert(
-      'Confirmar eliminación',
-      '¿Estás seguro de que quieres eliminar este punto de interés?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await dispatch(removePOIAsync(poiId) as any);
-              Alert.alert('Éxito', 'Punto de interés eliminado');
-            } catch (error) {
-              Alert.alert('Error', 'No se pudo eliminar el punto de interés');
-            }
-          },
-        },
-      ]
-    );
+    setPoiToDelete(poiId);
+    setDeleteModalVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (poiToDelete === null) return;
+    
+    try {
+      await dispatch(removePOIAsync(poiToDelete) as any);
+      setDeleteModalVisible(false);
+      setPoiToDelete(null);
+      alert('Punto de interés eliminado correctamente');
+    } catch (error) {
+      console.error('Error al eliminar POI:', error);
+      alert('Error: No se pudo eliminar el punto de interés');
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteModalVisible(false);
+    setPoiToDelete(null);
   };
 
   const handlePOISelect = (poi: POI) => {
@@ -199,15 +150,15 @@ const MainMapScreen = () => {
 
   function MapClickHandler() {
     useMapEvents({
-      click: handleMapPress,
+      click: (e: any) => {
+        handleMapPress(e);
+      },
     });
     return null;
   }
 
   const defaultLat = pois[0]?.latitude || 40.4168;
   const defaultLng = pois[0]?.longitude || -3.7038;
-
-  console.log('MainMapScreen.web: Renderizando componente');
 
   return (
     <View style={styles.container}>
@@ -220,12 +171,6 @@ const MainMapScreen = () => {
             <Text style={styles.sidebarTitle}>Puntos de Interés ({pois.length})</Text>
             <View style={styles.headerButtons}>
               <TouchableOpacity 
-                style={styles.testButton}
-                onPress={handleTestAddPOI}
-              >
-                <Text style={styles.testButtonText}>+</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
                 style={styles.toggleButton}
                 onPress={() => setShowSidebar(false)}
               >
@@ -236,12 +181,10 @@ const MainMapScreen = () => {
           
           {/* Lista simplificada para debugging */}
           <View style={styles.poiListContainer}>
-            <Text style={styles.debugText}>Debug: {pois.length} POIs en estado</Text>
             <FlatList
               data={pois}
               keyExtractor={(item) => item.id.toString()}
               renderItem={({ item, index }) => {
-                console.log('MainMapScreen.web: FlatList renderizando POI:', item, 'índice:', index);
                 return (
                   <View style={styles.poiItem}>
                     <POICard poi={item} />
@@ -360,6 +303,33 @@ const MainMapScreen = () => {
                 title={loading ? "Guardando..." : "Guardar"} 
                 onPress={handleAddPOI}
                 disabled={loading}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de confirmación de eliminación */}
+      <Modal visible={deleteModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Confirmar Eliminación</Text>
+            <Text style={styles.modalText}>
+              ¿Estás seguro de que quieres eliminar este punto de interés?
+            </Text>
+            <Text style={styles.modalText}>
+              Esta acción no se puede deshacer.
+            </Text>
+            
+            <View style={styles.modalBtns}>
+              <Button 
+                title="Cancelar" 
+                onPress={handleCancelDelete}
+              />
+              <Button 
+                title="Eliminar" 
+                onPress={handleConfirmDelete}
+                color="#ff4444"
               />
             </View>
           </View>
@@ -503,13 +473,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  testButton: {
-    padding: 5,
-  },
-  testButtonText: {
-    fontSize: 20,
-    color: '#666',
-  },
   poiListContainer: {
     flex: 1,
     padding: 10,
@@ -533,6 +496,11 @@ const styles = StyleSheet.create({
     color: '#999',
     fontSize: 12,
     marginBottom: 5,
+  },
+  modalText: {
+    color: '#666',
+    fontSize: 16,
+    marginBottom: 10,
   },
 });
 
