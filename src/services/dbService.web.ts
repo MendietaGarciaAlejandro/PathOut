@@ -39,7 +39,7 @@ class WebDatabase {
     this.favorites = [];
     this.routes = [];
     this.saveToStorage();
-  } 
+  }
 
   private loadFromStorage() {
     try {
