@@ -11,8 +11,13 @@ const MapScreen = () => {
     const pois = useSelector((state: RootState) => state.poi.pois);
     const [modalVisible, setModalVisible] = useState(false);
     const [newPOI, setNewPOI] = useState<Partial<POI>>({});
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
+        loadPOIs();
+    }, []);
+
+    const loadPOIs = () => {
         db.transaction((tx: any) => {
             tx.executeSql(
                 'SELECT * FROM pois',
@@ -22,7 +27,7 @@ const MapScreen = () => {
                 }
             );
         });
-    }, [dispatch]);
+    };
 
     const { MapContainer, TileLayer, Marker: LeafletMarker, Popup, useMapEvents } = require('react-leaflet');
     const L = require('leaflet');
@@ -43,54 +48,174 @@ const MapScreen = () => {
         return null;
     }
 
-    const handleAddPOI = () => {
-        if (!newPOI.name || !newPOI.latitude || !newPOI.longitude) return;
-        const poi: POI = {
-            id: Date.now(),
-            name: newPOI.name,
-            description: newPOI.description || '',
-            latitude: newPOI.latitude,
-            longitude: newPOI.longitude,
-            image: newPOI.image,
-            category: newPOI.category,
-        };
-        dispatch(addPOIAsync(poi) as any);
+    const handleAddPOI = async () => {
+        if (!newPOI.name || !newPOI.latitude || !newPOI.longitude) {
+            alert('Por favor completa al menos el nombre del punto de interés');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const poi: POI = {
+                id: Date.now(),
+                name: newPOI.name,
+                description: newPOI.description || '',
+                latitude: newPOI.latitude,
+                longitude: newPOI.longitude,
+                image: newPOI.image,
+                category: newPOI.category,
+            };
+            
+            await dispatch(addPOIAsync(poi) as any);
+            setModalVisible(false);
+            setNewPOI({});
+            
+            // Recargar POIs después de un breve delay
+            setTimeout(() => {
+                loadPOIs();
+            }, 100);
+            
+            alert('Punto de interés agregado correctamente');
+        } catch (error) {
+            alert('No se pudo agregar el punto de interés');
+            console.error('Error adding POI:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCancel = () => {
         setModalVisible(false);
         setNewPOI({});
     };
 
-    // Si no hay POIs en web, usar dummy
-    const poisToShow = pois.length > 0 ? pois : [
-        { id: 1, name: 'Catedral', description: 'La catedral principal de la ciudad.', latitude: 40.4168, longitude: -3.7038 },
-        { id: 2, name: 'Museo de Arte', description: 'Museo con exposiciones locales.', latitude: 40.417, longitude: -3.704 },
-    ];
+    // Si no hay POIs en web, usar coordenadas por defecto
+    const defaultLat = pois[0]?.latitude || 40.4168;
+    const defaultLng = pois[0]?.longitude || -3.7038;
 
     return (
         <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
             <MapContainer
-                center={[poisToShow[0]?.latitude || 40.4168, poisToShow[0]?.longitude || -3.7038]}
+                center={[defaultLat, defaultLng]}
                 zoom={15}
                 style={{ width: '100%', height: '100%' }}
             >
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <MapClickHandler />
-                {poisToShow.map(poi => (
+                {pois.map(poi => (
                     <LeafletMarker key={poi.id} position={[poi.latitude, poi.longitude]}>
                         <Popup>
-                            <b>{poi.name}</b><br />{poi.description}
+                            <b>{poi.name}</b><br />
+                            {poi.description && <span>{poi.description}<br /></span>}
+                            {poi.category && <span>Categoría: {poi.category}</span>}
                         </Popup>
                     </LeafletMarker>
                 ))}
             </MapContainer>
+            
             {modalVisible && (
-                <div style={{ position: 'absolute', top: 40, left: '50%', transform: 'translateX(-50%)', background: '#fff', padding: 24, borderRadius: 8, boxShadow: '0 2px 8px #0002', zIndex: 1000 }}>
-                    <h3>Nuevo Punto de Interés</h3>
-                    <input placeholder="Nombre" style={{ display: 'block', marginBottom: 8, width: 200 }} value={newPOI.name || ''} onChange={e => setNewPOI({ ...newPOI, name: e.target.value })} />
-                    <input placeholder="Descripción" style={{ display: 'block', marginBottom: 8, width: 200 }} value={newPOI.description || ''} onChange={e => setNewPOI({ ...newPOI, description: e.target.value })} />
-                    <div style={{ color: '#888', marginBottom: 8 }}>Lat: {newPOI.latitude}, Lon: {newPOI.longitude}</div>
-                    <input placeholder="Categoría" style={{ display: 'block', marginBottom: 8, width: 200 }} value={newPOI.category || ''} onChange={e => setNewPOI({ ...newPOI, category: e.target.value })} />
-                    <button onClick={() => setModalVisible(false)} style={{ marginRight: 8 }}>Cancelar</button>
-                    <button onClick={handleAddPOI}>Guardar</button>
+                <div style={{ 
+                    position: 'absolute', 
+                    top: '50%', 
+                    left: '50%', 
+                    transform: 'translate(-50%, -50%)', 
+                    background: '#fff', 
+                    padding: '24px', 
+                    borderRadius: '8px', 
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.3)', 
+                    zIndex: 1000,
+                    minWidth: '300px',
+                    maxWidth: '400px'
+                }}>
+                    <h3 style={{ margin: '0 0 20px 0', textAlign: 'center' }}>Nuevo Punto de Interés</h3>
+                    
+                    <input 
+                        placeholder="Nombre *" 
+                        style={{ 
+                            display: 'block', 
+                            marginBottom: '10px', 
+                            width: '100%', 
+                            padding: '10px',
+                            border: '1px solid #ddd',
+                            borderRadius: '5px',
+                            fontSize: '16px'
+                        }} 
+                        value={newPOI.name || ''} 
+                        onChange={e => setNewPOI({ ...newPOI, name: e.target.value })} 
+                    />
+                    
+                    <textarea 
+                        placeholder="Descripción" 
+                        style={{ 
+                            display: 'block', 
+                            marginBottom: '10px', 
+                            width: '100%', 
+                            padding: '10px',
+                            border: '1px solid #ddd',
+                            borderRadius: '5px',
+                            fontSize: '16px',
+                            minHeight: '80px',
+                            resize: 'vertical'
+                        }} 
+                        value={newPOI.description || ''} 
+                        onChange={e => setNewPOI({ ...newPOI, description: e.target.value })} 
+                    />
+                    
+                    <div style={{ 
+                        color: '#666', 
+                        marginBottom: '10px', 
+                        fontSize: '12px',
+                        textAlign: 'center'
+                    }}>
+                        Lat: {newPOI.latitude?.toFixed(6)}, Lon: {newPOI.longitude?.toFixed(6)}
+                    </div>
+                    
+                    <input 
+                        placeholder="Categoría" 
+                        style={{ 
+                            display: 'block', 
+                            marginBottom: '20px', 
+                            width: '100%', 
+                            padding: '10px',
+                            border: '1px solid #ddd',
+                            borderRadius: '5px',
+                            fontSize: '16px'
+                        }} 
+                        value={newPOI.category || ''} 
+                        onChange={e => setNewPOI({ ...newPOI, category: e.target.value })} 
+                    />
+                    
+                    <div style={{ display: 'flex', justifyContent: 'space-around', gap: '10px' }}>
+                        <button 
+                            onClick={handleCancel}
+                            disabled={loading}
+                            style={{
+                                padding: '10px 20px',
+                                border: '1px solid #ddd',
+                                borderRadius: '5px',
+                                background: '#f5f5f5',
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                opacity: loading ? 0.6 : 1
+                            }}
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            onClick={handleAddPOI}
+                            disabled={loading}
+                            style={{
+                                padding: '10px 20px',
+                                border: 'none',
+                                borderRadius: '5px',
+                                background: '#007AFF',
+                                color: 'white',
+                                cursor: loading ? 'not-allowed' : 'pointer',
+                                opacity: loading ? 0.6 : 1
+                            }}
+                        >
+                            {loading ? "Guardando..." : "Guardar"}
+                        </button>
+                    </div>
                 </div>
             )}
         </div>

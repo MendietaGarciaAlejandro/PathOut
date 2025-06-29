@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { getFavorites, addFavorite, removeFavorite } from '../../services/dbService';
+import { getFavorites, addFavorite, removeFavorite } from '../../services/dbServiceConfig';
 
 export const fetchFavorites = createAsyncThunk('favorites/fetch', async () => {
   return await getFavorites();
