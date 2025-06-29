@@ -1,6 +1,6 @@
 # PathOut - Guía de Ciudades
 
-Una aplicación móvil y web para gestionar puntos de interés en mapas con interfaz centralizada.
+Una aplicación móvil, web y de escritorio para gestionar puntos de interés en mapas con interfaz centralizada.
 
 ## Características
 
@@ -10,7 +10,8 @@ Una aplicación móvil y web para gestionar puntos de interés en mapas con inte
 - ❤️ **Sistema de favoritos**: Marca tus lugares favoritos directamente desde la lista
 - 🗑️ **Gestión completa**: Agregar, eliminar y gestionar favoritos desde una sola pantalla
 - 💾 **Persistencia real**: Los datos se guardan localmente y persisten entre sesiones
-- 📱 **Multiplataforma**: Funciona en iOS, Android y Web con la misma funcionalidad
+- 📱 **Multiplataforma**: Funciona en iOS, Android, Web y Desktop con la misma funcionalidad
+- 🖥️ **Aplicación de escritorio**: Versión nativa para Windows, macOS y Linux usando Tauri
 
 ## Instalación
 
@@ -38,6 +39,9 @@ npm run ios
 
 # Para Web
 npm run web
+
+# Para Desktop (Windows/macOS/Linux)
+npm run desktop:dev
 ```
 
 ## Uso
@@ -74,6 +78,23 @@ En la pestaña de Ajustes puedes:
 - **Exportar datos**: Descargar todos los POIs como archivo JSON
 - **Eliminar todos los datos**: Limpiar completamente la base de datos
 
+## Plataformas Soportadas
+
+### 📱 Móvil (iOS/Android)
+- **React Native** con Expo
+- **SQLite** para persistencia local
+- **React Native Maps** para mapas nativos
+
+### 🌐 Web
+- **React Native Web** con Expo
+- **localStorage** para persistencia
+- **Leaflet** para mapas web
+
+### 🖥️ Desktop (Windows/macOS/Linux)
+- **Tauri** para aplicación nativa
+- **Build web de Expo** empaquetado
+- **Tamaño reducido** (~10MB vs ~100MB de Electron)
+
 ## Mejoras Implementadas
 
 ### Nueva Interfaz Centralizada
@@ -90,6 +111,13 @@ En la pestaña de Ajustes puedes:
 - ✅ **Persistencia en móvil**: SQLite nativo para almacenamiento local
 - ✅ **Sincronización automática**: Los datos se actualizan en tiempo real
 - ✅ **Manejo de errores**: Validación y recuperación de errores
+
+### Aplicación de Escritorio
+
+- ✅ **Tauri nativo**: Aplicación de escritorio moderna y ligera
+- ✅ **Multiplataforma**: Windows, macOS y Linux
+- ✅ **Rendimiento optimizado**: Mejor que Electron
+- ✅ **Tamaño reducido**: ~90% más pequeño que Electron
 
 ### Funcionalidades Mejoradas
 
@@ -113,6 +141,12 @@ src/
 │   ├── dbService.ts       # SQLite para móvil
 │   └── dbService.web.ts   # localStorage para web
 └── types/              # Definiciones de tipos TypeScript
+
+src-tauri/              # Código Rust de Tauri (Desktop)
+├── src/
+│   └── main.rs         # Punto de entrada
+├── Cargo.toml          # Dependencias Rust
+└── tauri.conf.json     # Configuración de Tauri
 ```
 
 ## Tecnologías Utilizadas
@@ -126,6 +160,28 @@ src/
 - **React Native Maps** - Mapas en móvil
 - **Leaflet** - Mapas en web
 - **TypeScript** - Tipado estático
+- **Tauri** - Aplicación de escritorio nativa
+- **Rust** - Backend de Tauri
+
+## Comandos de Desarrollo
+
+```bash
+# Desarrollo móvil
+npm start              # Iniciar Expo
+npm run android        # Android
+npm run ios           # iOS
+
+# Desarrollo web
+npm run web           # Navegador
+
+# Desarrollo desktop
+npm run desktop:dev   # Tauri en desarrollo
+npm run desktop:build # Build de producción
+npm run desktop:clean # Limpiar archivos temporales
+
+# Build web
+npm run export        # Generar build web para Tauri
+```
 
 ## Solución de Problemas
 
@@ -144,6 +200,11 @@ src/
 - Asegúrate de que el navegador soporte localStorage
 - Verifica que no haya bloqueadores de contenido activos
 
+### Problemas en Desktop
+- **Rust no encontrado**: Instala Rust desde https://rustup.rs/
+- **Build falla**: Ejecuta `npm run desktop:clean` y vuelve a intentar
+- **Ventana en blanco**: Verifica que el build web se genere correctamente
+
 ## Contribuir
 
 1. Fork el proyecto
@@ -155,3 +216,46 @@ src/
 ## Licencia
 
 Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles. 
+
+## ¿Qué hacer ahora?
+
+### Opción 1: Usar el build estático (más simple y recomendado)
+Como ya generaste el build web con `npm run export`, puedes indicarle a Tauri que use directamente los archivos estáticos en `dist/` en vez de esperar el servidor de desarrollo.
+
+#### 1. Edita el archivo `src-tauri/tauri.conf.json`:
+Asegúrate de que la sección `build` tenga esto:
+```json
+"build": {
+  "frontendDist": "../dist",
+  "devPath": "../dist",
+  "beforeDevCommand": "npm run export",
+  "beforeBuildCommand": "npm run export"
+}
+```
+Así Tauri abrirá directamente el build estático y no esperará el servidor de Expo.
+
+#### 2. Guarda y ejecuta:
+```powershell
+tauri dev
+```
+o para un build final:
+```powershell
+tauri build
+```
+
+---
+
+### Opción 2: Levantar el servidor de Expo manualmente
+Si prefieres probar con hot reload, abre otra terminal y ejecuta:
+```powershell
+npm run web
+```
+y espera a que diga que está corriendo en `http://localhost:19006`.  
+Luego vuelve a correr `tauri dev`.
+
+---
+
+## Recomendación
+Para probar la app de escritorio como la verá el usuario final, usa la **Opción 1** (build estático).
+
+¿Quieres que actualice la configuración automáticamente para que Tauri use el build estático? 
