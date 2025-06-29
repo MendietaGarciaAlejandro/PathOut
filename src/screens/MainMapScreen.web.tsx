@@ -10,8 +10,11 @@ import ErrorMessage from '../components/ErrorMessage';
 import POICard from '../components/POICard';
 import 'leaflet/dist/leaflet.css';
 
+// Log básico para verificar que el archivo se está cargando
+console.log('MainMapScreen.web.tsx: Archivo cargado');
+
 const MainMapScreen = () => {
-  console.log('MainMapScreen.web: Componente cargado');
+  console.log('MainMapScreen.web: Componente iniciando');
   
   const dispatch = useDispatch();
   const pois = useSelector((state: RootState) => state.poi.pois);
@@ -25,36 +28,75 @@ const MainMapScreen = () => {
 
   console.log('MainMapScreen.web: Estado inicial - pois:', pois, 'favoriteIds:', favoriteIds);
 
-  useEffect(() => {
-    console.log('MainMapScreen.web: useEffect ejecutado');
-    loadPOIs();
-    dispatch(fetchFavorites() as any);
-  }, []);
-
-  const loadPOIs = () => {
-    console.log('Cargando POIs desde la base de datos...');
-    db.transaction((tx: any) => {
-      tx.executeSql('SELECT * FROM pois', [], (_: any, { rows }: any) => {
-        const poisFromDB = rows._array || [];
-        console.log('POIs cargados desde DB:', poisFromDB);
-        dispatch(setPOIs(poisFromDB));
-      });
-    });
+  // Función para cargar POIs desde la base de datos
+  const loadPOIsFromDB = async () => {
+    try {
+      console.log('MainMapScreen.web: Cargando POIs desde la base de datos...');
+      const loadedPOIs = await db.getPOIs();
+      console.log('MainMapScreen.web: POIs cargados desde DB:', loadedPOIs);
+      dispatch(setPOIs(loadedPOIs));
+    } catch (error) {
+      console.error('MainMapScreen.web: Error al cargar POIs desde DB:', error);
+      // Si hay error, usar datos de prueba
+      const testPOIs: POI[] = [
+        {
+          id: 1,
+          name: 'Punto de prueba',
+          description: 'Este es un punto de prueba',
+          latitude: 40.4168,
+          longitude: -3.7038,
+          category: 'Test'
+        }
+      ];
+      dispatch(setPOIs(testPOIs));
+    }
   };
 
+  // Monitorear cambios en el estado de POIs
+  useEffect(() => {
+    console.log('MainMapScreen.web: Estado de POIs actualizado:', pois);
+  }, [pois]);
+
+  useEffect(() => {
+    console.log('MainMapScreen.web: useEffect ejecutado');
+    // Cargar POIs desde la base de datos
+    loadPOIsFromDB();
+    dispatch(fetchFavorites() as any);
+  }, [dispatch]); // Solo dependencia en dispatch, no en pois
+
   const handleMapPress = (e: any) => {
-    const { latitude, longitude } = e.latlng;
-    setNewPOI({ latitude, longitude });
-    setModalVisible(true);
+    console.log('MainMapScreen.web: handleMapPress llamado');
+    console.log('MainMapScreen.web: e.latlng:', e.latlng);
+    
+    // Verificar si las coordenadas están en lat/lng en lugar de latitude/longitude
+    const lat = e.latlng?.lat || e.latlng?.latitude;
+    const lng = e.latlng?.lng || e.latlng?.longitude;
+    
+    console.log('MainMapScreen.web: lat extraída:', lat);
+    console.log('MainMapScreen.web: lng extraída:', lng);
+    
+    if (lat && lng) {
+      setNewPOI({ latitude: lat, longitude: lng });
+      console.log('MainMapScreen.web: newPOI establecido con:', { latitude: lat, longitude: lng });
+      setModalVisible(true);
+    } else {
+      console.error('MainMapScreen.web: No se pudieron extraer las coordenadas del evento');
+    }
   };
 
   const handleAddPOI = async () => {
+    console.log('MainMapScreen.web: handleAddPOI llamado');
+    console.log('MainMapScreen.web: newPOI actual:', newPOI);
+    
     if (!newPOI.name || !newPOI.latitude || !newPOI.longitude) {
+      console.log('MainMapScreen.web: Validación fallida - datos faltantes');
       Alert.alert('Error', 'Por favor completa al menos el nombre del punto de interés');
       return;
     }
 
     setLoading(true);
+    console.log('MainMapScreen.web: Loading establecido en true');
+    
     try {
       const poi: POI = {
         id: Date.now(),
@@ -66,25 +108,40 @@ const MainMapScreen = () => {
         category: newPOI.category,
       };
       
-      console.log('Agregando POI:', poi);
-      await dispatch(addPOIAsync(poi) as any);
+      console.log('MainMapScreen.web: POI creado:', poi);
+      console.log('MainMapScreen.web: Estado actual de POIs antes de dispatch:', pois);
+      
+      const result = await dispatch(addPOIAsync(poi) as any);
+      console.log('MainMapScreen.web: Resultado del dispatch:', result);
+      
       setModalVisible(false);
       setNewPOI({});
       
-      // Recargar POIs inmediatamente y después de un delay
-      loadPOIs();
-      setTimeout(() => {
-        console.log('Recargando POIs después del delay...');
-        loadPOIs();
-      }, 500);
-      
+      console.log('MainMapScreen.web: Modal cerrado y newPOI reseteado');
       Alert.alert('Éxito', 'Punto de interés agregado correctamente');
     } catch (error) {
+      console.error('MainMapScreen.web: Error en handleAddPOI:', error);
       Alert.alert('Error', 'No se pudo agregar el punto de interés');
-      console.error('Error adding POI:', error);
     } finally {
       setLoading(false);
+      console.log('MainMapScreen.web: Loading establecido en false');
     }
+  };
+
+  // Función de prueba para agregar un POI directamente al estado
+  const handleTestAddPOI = () => {
+    console.log('MainMapScreen.web: handleTestAddPOI llamado');
+    const testPOI: POI = {
+      id: Date.now(),
+      name: 'POI de prueba ' + Date.now(),
+      description: 'Descripción de prueba',
+      latitude: 40.4168,
+      longitude: -3.7038,
+      category: 'Test'
+    };
+    console.log('MainMapScreen.web: Agregando POI de prueba:', testPOI);
+    dispatch(setPOIs([...pois, testPOI]));
+    console.log('MainMapScreen.web: POI de prueba agregado, estado actual:', [...pois, testPOI]);
   };
 
   const handleCancel = () => {
@@ -150,6 +207,8 @@ const MainMapScreen = () => {
   const defaultLat = pois[0]?.latitude || 40.4168;
   const defaultLng = pois[0]?.longitude || -3.7038;
 
+  console.log('MainMapScreen.web: Renderizando componente');
+
   return (
     <View style={styles.container}>
       {error && <ErrorMessage message={error} onDismiss={handleDismissError} />}
@@ -158,45 +217,67 @@ const MainMapScreen = () => {
       {showSidebar && (
         <View style={styles.sidebar}>
           <View style={styles.sidebarHeader}>
-            <Text style={styles.sidebarTitle}>Puntos de Interés</Text>
-            <TouchableOpacity 
-              style={styles.toggleButton}
-              onPress={() => setShowSidebar(false)}
-            >
-              <Text style={styles.toggleButtonText}>×</Text>
-            </TouchableOpacity>
+            <Text style={styles.sidebarTitle}>Puntos de Interés ({pois.length})</Text>
+            <View style={styles.headerButtons}>
+              <TouchableOpacity 
+                style={styles.testButton}
+                onPress={handleTestAddPOI}
+              >
+                <Text style={styles.testButtonText}>+</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.toggleButton}
+                onPress={() => setShowSidebar(false)}
+              >
+                <Text style={styles.toggleButtonText}>×</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           
-          <FlatList
-            data={pois}
-            keyExtractor={item => item.id.toString()}
-            renderItem={({ item }) => (
-              <View style={styles.poiItem}>
-                <POICard poi={item} />
-                <View style={styles.poiActions}>
-                  <TouchableOpacity 
-                    style={styles.actionButton}
-                    onPress={() => handleToggleFavorite(item.id)}
-                  >
-                    <Text style={styles.actionButtonText}>
-                      {favoriteIds.includes(item.id) ? '❤️' : '🤍'}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.actionButton, styles.deleteButton]}
-                    onPress={() => handleDeletePOI(item.id)}
-                  >
-                    <Text style={styles.deleteButtonText}>🗑️</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>
-                No hay puntos de interés. Toca en el mapa para agregar uno.
-              </Text>
-            }
-          />
+          {/* Lista simplificada para debugging */}
+          <View style={styles.poiListContainer}>
+            <Text style={styles.debugText}>Debug: {pois.length} POIs en estado</Text>
+            <FlatList
+              data={pois}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item, index }) => {
+                console.log('MainMapScreen.web: FlatList renderizando POI:', item, 'índice:', index);
+                return (
+                  <View style={styles.poiItem}>
+                    <POICard poi={item} />
+                    <View style={styles.poiActions}>
+                      <TouchableOpacity 
+                        style={styles.actionButton}
+                        onPress={() => handleToggleFavorite(item.id)}
+                      >
+                        <Text style={styles.actionButtonText}>
+                          {favoriteIds.includes(item.id) ? '❤️' : '🤍'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.actionButton, styles.deleteButton]}
+                        onPress={() => handleDeletePOI(item.id)}
+                      >
+                        <Text style={styles.deleteButtonText}>🗑️</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              }}
+              ListEmptyComponent={() => (
+                <Text style={styles.emptyText}>
+                  No hay puntos de interés. Toca en el mapa para agregar uno.
+                </Text>
+              )}
+              extraData={pois.length} // Forzar re-render cuando cambia el número de POIs
+              removeClippedSubviews={false} // Evitar problemas de renderizado en web
+              getItemLayout={(data, index) => ({
+                length: 120, // Altura estimada de cada item
+                offset: 120 * index,
+                index,
+              })}
+            />
+          </View>
         </View>
       )}
 
@@ -417,6 +498,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginTop: 10,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  testButton: {
+    padding: 5,
+  },
+  testButtonText: {
+    fontSize: 20,
+    color: '#666',
+  },
+  poiListContainer: {
+    flex: 1,
+    padding: 10,
+  },
+  debugText: {
+    color: '#666',
+    fontSize: 12,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  poiName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  poiDesc: {
+    color: '#666',
+    marginBottom: 5,
+  },
+  poiCoords: {
+    color: '#999',
+    fontSize: 12,
+    marginBottom: 5,
   },
 });
 

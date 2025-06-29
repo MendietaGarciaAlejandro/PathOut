@@ -228,4 +228,29 @@ export const deletePOI = (poiId: number) => {
   });
 };
 
+export const getPOIs = () => {
+  return new Promise<POI[]>((resolve, reject) => {
+    try {
+      console.log('WebDB: Obteniendo todos los POIs');
+      db.transaction((tx: any) => {
+        tx.executeSql(
+          'SELECT * FROM pois',
+          [],
+          (_: any, { rows }: any) => {
+            console.log('WebDB: POIs obtenidos de la transacción:', rows._array);
+            resolve(rows._array);
+          },
+          (_: any, err: any) => {
+            console.error('WebDB: Error al obtener POIs:', err);
+            reject(err);
+          }
+        );
+      });
+    } catch (error) {
+      console.error('WebDB: Error en getPOIs:', error);
+      reject(error);
+    }
+  });
+};
+
 export default db;

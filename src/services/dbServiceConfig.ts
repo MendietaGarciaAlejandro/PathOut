@@ -23,4 +23,5 @@ export const removeFavorite = dbService.removeFavorite;
 export const getFavorites = dbService.getFavorites;
 export const insertPOI = dbService.insertPOI;
 export const deletePOI = dbService.deletePOI;
+export const getPOIs = dbService.getPOIs;
 export default dbService.default; 

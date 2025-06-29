@@ -2,6 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Platform } from 'react-native';
 import SettingsScreen from '../screens/SettingsScreen';
+import TestScreen from '../screens/TestScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -21,6 +22,14 @@ console.log('AppNavigator: MainMapScreen cargado:', MainMapScreen);
 
 const AppNavigator = () => (
     <Tab.Navigator>
+        <Tab.Screen 
+            name="Test" 
+            component={TestScreen} 
+            options={{ 
+                title: 'Test',
+                headerShown: true 
+            }} 
+        />
         <Tab.Screen 
             name="Mapa" 
             component={MainMapScreen} 
