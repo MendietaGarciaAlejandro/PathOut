@@ -1,12 +1,26 @@
 {
   "name": "cityguide",
   "version": "1.0.0",
-  "main": "index.ts",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "export": "npx expo export",
+    "fix-paths": "node fix-paths.js",
+    "copy-web-files": "node copy-web-files.js",
+    "build:desktop": "npm run export && npm run fix-paths && cd electron && npm run build && cd .. && npm run copy-web-files",
+    "windows": "npx react-native run-windows",
+    "windows:build": "npx react-native run-windows --release",
+    "desktop:setup": "npx @react-native-community/cli init --template react-native-template-typescript",
+    "macos": "npx react-native run-macos",
+    "macos:build": "npx react-native run-macos --release",
+    "linux": "npx react-native run-linux",
+    "linux:build": "npx react-native run-linux --release",
+    "tauri": "tauri",
+    "desktop:dev": "npm run export && tauri dev",
+    "desktop:build": "npm run export && tauri build",
+    "desktop:clean": "powershell -Command \"if (Test-Path electron) { Remove-Item -Recurse -Force electron }; if (Test-Path dist) { Remove-Item -Recurse -Force dist }; if (Test-Path src-tauri\\target) { Remove-Item -Recurse -Force src-tauri\\target }\""
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
@@ -26,7 +40,8 @@
     "react-native-safe-area-context": "^5.5.0",
     "react-native-screens": "^4.11.1",
     "react-native-web": "^0.20.0",
-    "react-redux": "^9.2.0"
+    "react-redux": "^9.2.0",
+    "react-native-windows": "^0.79.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
